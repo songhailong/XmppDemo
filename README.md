@@ -13,9 +13,8 @@
 **4、实现协议：XMPPRosterDelegate<br/>
 **5、实现协议：XMPPRoomDelegate<br/>
 
-# XMPPStreamDelegate协议具体实现方法有：
+## XMPPStreamDelegate协议具体实现方法有：
 
-    ```
     #pragma mark - 身份认证
     -(void) xmppStreamDidConnect:(XMPPStream *)sender
 
@@ -35,7 +34,38 @@
     #pragma mark - 获取好友状态
     -(void) xmppStream:(XMPPStream *)sender didReceivePresence:(XMPPPresence *)presence
 
-    ```
+## XMPPRosterDelegate具体实现方法有：
 
+    #pragma mark --- 收到添加好友的请求(处理添加好友的回调)
+    -(void) xmppRoster:(XMPPRoster *)sender didReceivePresenceSubscriptionRequest:(XMPPPresence *)presence
+
+    #pragma mark - 获取到一个好友节点
+    -(void) xmppRoster:(XMPPRoster *)sender didReceiveRosterItem:(DDXMLElement *)item
+
+    #pragma mark - 获取完好友列表
+    -(void) xmppRosterDidEndPopulating:(XMPPRoster *)sender
+
+## XMPPRoomDelegate协议具体实现方法：
+
+    #pragma mark - 有人在群里发言
+    -(void) xmppRoom:(XMPPRoom *)sender didReceiveMessage:(XMPPMessage *)message fromOccupant:(XMPPJID *)occupantJID
+
+    #pragma mark - 获取聊天室信息
+    -(void) xmppRoomDidJoin:(XMPPRoom *)sender
+
+    #pragma mark - 收到好友名单列表
+    -(void) xmppRoom:(XMPPRoom *)sender didFetchMembersList:(NSArray *)items
+
+    #pragma mark - 收到主持人名单列表
+    -(void) xmppRoom:(XMPPRoom *)sender didFetchModeratorsList:(NSArray *)items
+
+    #pragma mark - 收到禁止名单列表
+    -(void) xmppRoom:(XMPPRoom *)sender didFetchBanList:(NSArray *)items
+
+    #pragma mark - 新人加入群聊（实现代理方法）
+    -(void) xmppRoom:(XMPPRoom *)sender occupantDidJoin:(XMPPJID *)occupantJID withPresence:(XMPPPresence *)presence
+
+    #pragma mark - 有人退出群聊
+    -(void) xmppRoom:(XMPPRoom *)sender occupantDidLeave:(XMPPJID *)occupantJID withPresence:(XMPPPresence *)presence
 
 
