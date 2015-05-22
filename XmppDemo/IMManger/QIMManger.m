@@ -28,10 +28,13 @@
     static const int ddLogLevel = LOG_LEVEL_INFO;
 #endif
 
-NSString* curUserJid = @"jinlong.yang@domain";
-NSString* testUserJid = @"wengao.han@domain";
-NSString* testRoomBareJid = @"ygroup@conference.domain";
-NSString* testRoomNick = @"ygroup";
+NSString* curUserId = @"shaodw.zhang";
+NSString* curUserJid = @"shaodw.zhang@domain";
+
+NSString* testUserJid = @"jinlong.yang@domain";
+
+NSString* testRoomBareJid = @"hermes@domain";
+NSString* testRoomNick = @"hermes";
 
 
 @interface QIMManger ()
@@ -67,10 +70,10 @@ NSString* testRoomNick = @"ygroup";
     
     [self setupStream];
     
-    NSString* userId = @"jinlong.yang";
+    NSString* userId = curUserId;
     NSString* domain = @"服务名";
     NSString* myPassword = @"密码";
-    NSString* host = @"主机host";
+    NSString* host = @"主机名";
     short port = 5223;
     [self connectWithUserId: userId withPwd: myPassword withDomain: domain withPort: port withHost: host];
 }
@@ -103,7 +106,9 @@ NSString* testRoomNick = @"ygroup";
     [self.view addSubview: titleLabel];
     
     // 测试按钮标题
-    NSArray* arrBtnTitle = [NSArray arrayWithObjects: @"发送消息", @"添加好友", @"创建聊天室", @"邀请人加入聊天室", @"获取聊天室列表", @"发送群聊信息", nil];
+    NSArray* arrBtnTitle = [NSArray arrayWithObjects: @"发送消息", @"添加好友", @"创建聊天室并进入(临时)", @"设置为永久聊天室",
+                                                      @"注册成为聊天室成员", @"获取聊天室人列表", @"邀请人加入聊天室",
+                                                      @"获取聊天室列表", @"发送群聊信息", nil];
     NSUInteger nIndex = 0;
     for (NSString* title in arrBtnTitle)
     {
@@ -143,16 +148,28 @@ NSString* testRoomNick = @"ygroup";
             case 2:
                 [testBtn addTarget: self action: @selector(initChatRoom) forControlEvents: UIControlEventTouchUpInside];
                 break;
-                
+            
             case 3:
-                [testBtn addTarget: self action: @selector(inviteUserJoinRoom) forControlEvents: UIControlEventTouchUpInside];
+                [testBtn addTarget: self action: @selector(registerPermentRoom) forControlEvents: UIControlEventTouchUpInside];
                 break;
                 
             case 4:
-                [testBtn addTarget: self action: @selector(fetchRoomList) forControlEvents: UIControlEventTouchUpInside];
+                [testBtn addTarget: self action: @selector(registerPermentToMember) forControlEvents: UIControlEventTouchUpInside];
                 break;
                 
             case 5:
+                [testBtn addTarget: self action: @selector(fetchRoomMemberList) forControlEvents: UIControlEventTouchUpInside];
+                break;
+                
+            case 6:
+                [testBtn addTarget: self action: @selector(inviteUserJoinRoom) forControlEvents: UIControlEventTouchUpInside];
+                break;
+                
+            case 7:
+                [testBtn addTarget: self action: @selector(fetchRoomList) forControlEvents: UIControlEventTouchUpInside];
+                break;
+                
+            case 8:
                 [testBtn addTarget: self action: @selector(sendRoomMessage) forControlEvents: UIControlEventTouchUpInside];
                 break;
                 
@@ -402,6 +419,54 @@ NSString* getMachine() {
     //通过iq对象来获取对应元素，之后再拿到对应熟悉的值
     //[iq elementForName: @"" xmlns: @""];
     
+    /*
+     *  获取已注册聊天室列表
+     *  注：服务端自己实现的
+     */
+    NSMutableArray* existRoomList = [NSMutableArray array];
+    NSXMLElement* queryRoomListElement = [iq elementForName: @"query" xmlns: @"http://jabber.org/protocol/muc#user_mucs"];
+    //NSLog(@"获取已注册聊天室列表xml对象： %@", queryRoomListElement);
+    if (queryRoomListElement)
+    {
+        NSArray* roomList = [queryRoomListElement elementsForName: @"muc_rooms"];
+        NSLog(@"已注册的room的list为： %@", roomList);
+        for (NSString* attr in roomList)
+        {
+            NSXMLElement* muc_rooms = (NSXMLElement*)attr;
+            NSString* name = [[muc_rooms attributeForName: @"name"] stringValue];
+            NSString* host = [[muc_rooms attributeForName: @"host"] stringValue];
+            NSString* roomJID = [NSString stringWithFormat: @"%@@%@", name, host];
+            
+            NSMutableDictionary* dict = [NSMutableDictionary dictionary];
+            dict[@"name"] = name;
+            dict[@"jid"] = roomJID;
+            [existRoomList addObject: dict];
+        }
+        NSLog(@"fetch existd room list : %@", existRoomList);
+    }
+    
+    /*
+     *  获取已注册聊天室成员列表
+     *  注：服务端自己实现的
+     */
+    NSMutableArray* arrRoomMemList = [NSMutableArray array];
+    NSXMLElement* roomMemListElement = [iq elementForName: @"query" xmlns: @"http://jabber.org/protocol/muc#register"];
+    NSXMLElement* registerElement = [roomMemListElement elementForName: @"set_register"]; // 获取已注册成员列表和注册成为群成员的命名空间相同，大爷的
+    NSLog(@"registerSetElemet ---> %@", registerElement);
+    //NSLog(@"获取已注册聊天室成员列表 element: %@", roomMemListElement);
+    if (roomMemListElement && !registerElement)
+    {
+        NSArray* memList =[roomMemListElement elementsForName: @"m_user"];
+        
+        for (NSString* user in memList)
+        {
+            NSXMLElement* userElement = (NSXMLElement*)user;
+            NSString* userJid = [[userElement attributeForName: @"jid"] stringValue];
+            [arrRoomMemList addObject: userJid];
+        }
+        NSLog(@"获取的群成员jid列表： %@", arrRoomMemList);
+    }
+    
     return YES;
 }
 
@@ -409,6 +474,8 @@ NSString* getMachine() {
 -(void) xmppStream:(XMPPStream *)sender didReceiveMessage:(XMPPMessage *)message
 {
     NSLog(@"正在接受消息。。。。。");
+    // if 1 == isChatMessageWithBody : 单人聊天
+    // if 0 == isChatMessageWithBody : 群聊
     BOOL isChatMessageWithBody = [message isChatMessageWithBody];
     NSLog(@"是单人聊天吗：---- %d", isChatMessageWithBody);
     
@@ -524,7 +591,9 @@ NSString* getMachine() {
     [xmppStream sendElement: message];
 }
 
-
+/*
+ *  添加好友，这好像有点问题 对方收到的竟然是user而不是jid
+ */
 -(void) addFriend
 {
     NSLog(@"添加好友................");
@@ -572,7 +641,7 @@ NSString* getMachine() {
 // 创建聊天室
 -(void) initChatRoom
 {
-    NSLog(@"初始化聊天室............");
+    NSLog(@"1、初始化聊天室............");
     XMPPJID* roomJid = [XMPPJID jidWithString: testRoomBareJid];
     XMPPRoomCoreDataStorage* xmppRoomStorage = [XMPPRoomCoreDataStorage sharedInstance];
     
@@ -580,20 +649,57 @@ NSString* getMachine() {
     [xmppRoom activate: xmppStream];
     [xmppRoom addDelegate: self delegateQueue: dispatch_get_main_queue()];
     
-    NSLog(@"加入聊天室。。。。。。。。。。。。。。。。");
+    NSLog(@"2、加入聊天室..............");
     [xmppRoom joinRoomUsingNickname: testRoomNick history: nil];
+}
+
+-(void) registerPermentRoom
+{
+    NSLog(@"[xmppRoomDidJoin] 配置聊天室为永久聊天室...........");
+    // 先提交配置表单
+    [xmppRoom fetchConfigurationForm]; // 提交配置表单
+    
+    // 向服务器提交配置表单
+    NSXMLElement* field = [NSXMLElement elementWithName:@"field"];
+    [field addAttributeWithName:@"type"stringValue:@"boolean"];
+    [field addAttributeWithName:@"var"stringValue:@"muc#roomconfig_persistentroom"];
+    [field addChild:[NSXMLElement elementWithName:@"value"objectValue:@"1"]];  // 将持久属性置为YES。
+    
+    NSXMLElement* x = [NSXMLElement elementWithName:@"x" xmlns:@"jabber:x:data"];
+    [x addAttributeWithName:@"type"stringValue:@"form"];
+    [x addChild: field];
+    [xmppRoom configureRoomUsingOptions:x];
+}
+
+/*
+ *  聊天室创建完了，注册成为这个聊天室的成员
+ *  注：这个是服务端自己定义的
+ */
+-(void) registerPermentToMember
+{
+    NSLog(@"聊天室创建成功后，开始注册成为这个聊天室的成员。。。。");
+    
+    //先进行注册
+    NSString *key = [XMPPStream generateUUID];
+    NSXMLElement *iq = [NSXMLElement elementWithName:@"iq"];
+    [iq addAttributeWithName:@"to" stringValue: testRoomBareJid];
+    [iq addAttributeWithName:@"id" stringValue: key];
+    [iq addAttributeWithName:@"type" stringValue:@"set"];
+    NSXMLElement *query = [NSXMLElement elementWithName:@"query" xmlns:@"http://jabber.org/protocol/muc#register"];
+    [iq addChild:query];
+    [xmppStream sendElement: iq];
 }
 
 
 #pragma mark ---- XMPPRoomDelegate ----
 
-#pragma mark - 有人在群里发言
+#pragma mark - 群聊
 -(void) xmppRoom:(XMPPRoom *)sender didReceiveMessage:(XMPPMessage *)message fromOccupant:(XMPPJID *)occupantJID
 {
     NSLog(@"群聊开始了。。。。。。。。。");
     NSLog(@"群聊的消息： %@", message);
     NSString* chatType = [[message attributeForName: @"type"] stringValue];
-    NSString* fromUser = [[message attributeForName: @"from"] stringValue];
+    NSString* fromUser = [[xmppStream myJID] bare];
     NSString* body = [[message elementForName: @"body"] stringValue];
     
     NSLog(@"用户：%@ 正在发消息, 消息内容： %@, 群聊类型：%@", fromUser, body, chatType);
@@ -636,7 +742,7 @@ NSString* getMachine() {
 // 邀请好友加入聊天室
 -(void) inviteUserJoinRoom
 {
-    NSLog(@"jinlong.yang邀请好友加入到聊天室");
+    NSLog(@"%@邀请好友加入到聊天室", [[xmppStream myJID] user]);
     /*
         // 这种得是wengao.han主动进入聊天室，是他自己的行为，否则[xmppStream sendElement: presence]; 这样发送的话是自己邀请自己，会报错。
         <presence
@@ -684,14 +790,16 @@ NSString* getMachine() {
     
 }
 
-
-// 获取聊天室列表
--(void) fetchRoomList
+/*
+ *  获取已注册聊天室成员列表
+ *  注：这不是官方的，服务端需要实现一个
+ */
+-(void) fetchRoomMemberList
 {
-    NSLog(@"获取聊天室列表。。。。");
+    NSLog(@"获取已聊天室成员列表。。。。");
     
     NSXMLElement* iq = [NSXMLElement elementWithName: @"iq"];
-    [iq addAttributeWithName: @"to" stringValue: @"ygroup@conference.l-tqserver3.cc.beta.cn6"];
+    [iq addAttributeWithName: @"to" stringValue: testRoomBareJid];
     [iq addAttributeWithName: @"id" stringValue: [xmppStream generateUUID]];
     [iq addAttributeWithName: @"type" stringValue: @"get"];
     
@@ -699,6 +807,28 @@ NSString* getMachine() {
     NSXMLElement* query = [NSXMLElement elementWithName: @"query" xmlns: @"http://jabber.org/protocol/muc#register"];
     [iq addChild: query];
     
+    [xmppStream sendElement: iq];
+}
+
+
+/*
+ *  获取已注册聊天室列表
+ *  注：这不是官方的，服务端需要实现一个
+ */
+-(void) fetchRoomList
+{
+    NSLog(@"获取已注册聊天室列表...........");
+    
+    NSString* domain = [[xmppStream myJID] domain];
+    NSString* to = [NSString stringWithFormat: @"conference.%@", domain];
+    
+    NSXMLElement* iq = [NSXMLElement elementWithName: @"iq"];
+    [iq addAttributeWithName: @"to" stringValue: to];
+    [iq addAttributeWithName: @"id" stringValue: [xmppStream generateUUID]];
+    [iq addAttributeWithName: @"type" stringValue: @"get"];
+    
+    NSXMLElement* query = [NSXMLElement elementWithName: @"query" xmlns: @"http://jabber.org/protocol/muc#user_mucs"];
+    [iq addChild: query];
     [xmppStream sendElement: iq];
 }
 
