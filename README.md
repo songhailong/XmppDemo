@@ -68,4 +68,6 @@
     #pragma mark - 有人退出群聊
     -(void) xmppRoom:(XMPPRoom *)sender occupantDidLeave:(XMPPJID *)occupantJID withPresence:(XMPPPresence *)presence
 
+## TLS
+
 
