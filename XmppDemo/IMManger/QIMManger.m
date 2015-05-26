@@ -108,7 +108,7 @@ NSString* testRoomNick = @"hermes";
     // 测试按钮标题
     NSArray* arrBtnTitle = [NSArray arrayWithObjects: @"发送消息", @"添加好友", @"创建聊天室并进入(临时)", @"设置为永久聊天室",
                                                       @"注册成为聊天室成员", @"获取聊天室人列表", @"邀请人加入聊天室",
-                                                      @"获取聊天室列表", @"发送群聊信息", nil];
+                                                      @"获取聊天室列表", @"发送群聊信息", @"主动进入聊天室", nil];
     NSUInteger nIndex = 0;
     for (NSString* title in arrBtnTitle)
     {
@@ -171,6 +171,10 @@ NSString* testRoomNick = @"hermes";
                 
             case 8:
                 [testBtn addTarget: self action: @selector(sendRoomMessage) forControlEvents: UIControlEventTouchUpInside];
+                break;
+                
+            case 9:
+                [testBtn addTarget: self action: @selector(entranceRoom) forControlEvents: UIControlEventTouchUpInside];
                 break;
                 
             default:
@@ -849,6 +853,31 @@ NSString* getMachine() {
     
     [message addChild: body];
     [xmppStream sendElement: message];
+}
+
+
+// 主动进入聊天室
+-(void) entranceRoom
+{
+    [self autoJoinRoom: testRoomBareJid withNick: testRoomNick];
+}
+
+// 自动进入聊天室
+-(void) autoJoinRoom: (NSString*) roomJid withNick: (NSString*) nickName
+{
+    NSLog(@"进入聊天室。。。。。");
+    NSString* myJID = [[xmppStream myJID] bare];
+    NSString* to = [NSString stringWithFormat: @"%@/%@",roomJid,nickName];
+    
+    NSLog(@"用户：%@ 自动加入到某个聊天室", myJID);
+    XMPPPresence* presence = [XMPPPresence presence];
+    [presence addAttributeWithName: @"from" stringValue: myJID];
+    [presence addAttributeWithName: @"to" stringValue: to];
+    
+    NSXMLElement* x = [NSXMLElement elementWithName: @"x" xmlns: @"http://jabber.org/protocol/muc"];
+    [presence addChild: x];
+    
+    [xmppStream sendElement:presence];
 }
 
 
