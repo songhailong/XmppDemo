@@ -68,6 +68,17 @@
     #pragma mark - 有人退出群聊
     -(void) xmppRoom:(XMPPRoom *)sender occupantDidLeave:(XMPPJID *)occupantJID withPresence:(XMPPPresence *)presence
 
+### xmpp节接收说明：
+
+    1）所有收到的presence节都走到这个代理函数：
+    -(void) xmppStream:(XMPPStream *)sender didReceivePresence:(XMPPPresence *)presence
+
+    2）所有收到的message节都走到这个代理函数：
+    -(void) xmppStream:(XMPPStream *)sender didReceiveMessage:(XMPPMessage *)message
+
+    3）所有收到的iq节都走到这个代理函数
+    -(void) xmppStream:(XMPPStream *)sender didReceiveMessage:(XMPPMessage *)message
+
 ## TLS Verify
 
 

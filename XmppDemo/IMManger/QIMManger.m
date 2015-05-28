@@ -474,53 +474,68 @@ NSString* getMachine() {
     return YES;
 }
 
-#pragma mark - 接收消息
+#pragma mark - 接收消息，当收到<message>节的时候，会走到这里
 -(void) xmppStream:(XMPPStream *)sender didReceiveMessage:(XMPPMessage *)message
 {
-    NSLog(@"正在接受消息。。。。。");
-    // if 1 == isChatMessageWithBody : 单人聊天
-    // if 0 == isChatMessageWithBody : 群聊
-    BOOL isChatMessageWithBody = [message isChatMessageWithBody];
-    NSLog(@"是单人聊天吗：---- %d", isChatMessageWithBody);
+    NSLog(@"[xmpp] 正在接收消息.......");
     
     NSString* body = [[message elementForName: @"body"] stringValue];
-    NSLog(@"内容为： ---- %@", body);
+    NSLog(@"[xmpp] 聊天内容为： %@", body);
     
     NSString* from = [[message attributeForName: @"from"] stringValue];
-    NSLog(@"from---> %@", from);
+    NSLog(@"[xmpp] 聊天内容来自 ---> %@", from);
     
-    // 判断是否是好友邀请
-    NSXMLElement* x = [message elementForName: @"x" xmlns: @"http://jabber.org/protocol/muc#user"];
-    if (x)
+    BOOL isChatMessageWithBody = [message isChatMessageWithBody];
+    NSLog(@"[xmpp] 是聊天消息体吗：---- %d", isChatMessageWithBody);
+    
+    // 用于消息类型判断
+    NSString* messageType = [message attributeStringValueForName: @"type"];
+    NSLog(@"[xmpp] 消息类型==== %@", messageType);
+    
+    // 是单人聊天或是群聊，callback
+    if (1 == isChatMessageWithBody && [messageType isEqualToString: @"chat"])
     {
-        x = [message elementForName: @"x" xmlns: @"jabber:x:conference"];
-        if (x)
-        {
-            NSLog(@"这里是收到加入群的邀请了。。。。。。。。");
-            NSLog(@"1）先注册群。。。。");
-            // 先进行注册
-            NSString *key = [XMPPStream generateUUID];
-            NSXMLElement *iq = [NSXMLElement elementWithName:@"iq"];
-            [iq addAttributeWithName:@"to" stringValue:[NSString stringWithFormat:@"%@", from]];
-            [iq addAttributeWithName:@"id" stringValue:key];
-            [iq addAttributeWithName:@"type" stringValue:@"set"];
-            NSXMLElement *query = [NSXMLElement elementWithName:@"query" xmlns:@"http://jabber.org/protocol/muc#register"];
-            [iq addChild:query];
-            [xmppStream sendElement: iq];
-            
-            NSLog(@"2）再加入聊天室。。。。。");
-            // 加入到聊天室
-            NSString* curUser = [[xmppStream myJID] user];
-            NSXMLElement *presence = [NSXMLElement elementWithName:@"presence"];
-            [presence addAttributeWithName:@"to" stringValue:[NSString stringWithFormat:@"%@/%@", from, curUser]];
-            NSXMLElement *priority = [NSXMLElement elementWithName:@"priority" numberValue:@(5)];
-            NSXMLElement *x = [NSXMLElement elementWithName:@"x" xmlns:@"http://jabber.org/protocol/muc"];
-            [presence addChild:priority];
-            [presence addChild:x];
-            [xmppStream sendElement: presence];
-        }
+        NSLog(@"[xmpp message] 当前是接收单人聊天内容!!!");
+    }
+    else if (0 == isChatMessageWithBody && [messageType isEqualToString: @"groupchat"])
+    {
+        NSLog(@"[xmpp message] 当前是接收群聊!!!");
+    }
+    else if (0 == isChatMessageWithBody && [messageType isEqualToString: @"normal"])
+    {
+        NSLog(@"[xmpp message] 当前是接收邀请!!!");
+        [self acceptInvaviteFrom: from];
     }
 }
+
+// 接收邀请并加入并注册
+-(void) acceptInvaviteFrom: (NSString*) from
+{
+    NSLog(@"1）先注册群。。。。");
+    
+    // 先进行注册
+    NSString *key = [XMPPStream generateUUID];
+    NSXMLElement *iq = [NSXMLElement elementWithName:@"iq"];
+    [iq addAttributeWithName:@"to" stringValue:[NSString stringWithFormat:@"%@", from]];
+    [iq addAttributeWithName:@"id" stringValue:key];
+    [iq addAttributeWithName:@"type" stringValue:@"set"];
+    NSXMLElement *query = [NSXMLElement elementWithName:@"query" xmlns:@"http://jabber.org/protocol/muc#register"];
+    [iq addChild:query];
+    [xmppStream sendElement: iq];
+    
+    NSLog(@"2）再加入聊天室。。。。。");
+    
+    // 加入到聊天室
+    NSString* curUser = [[xmppStream myJID] user];
+    NSXMLElement *presence = [NSXMLElement elementWithName:@"presence"];
+    [presence addAttributeWithName:@"to" stringValue:[NSString stringWithFormat:@"%@/%@", from, curUser]];
+    NSXMLElement *priority = [NSXMLElement elementWithName:@"priority" numberValue:@(5)];
+    NSXMLElement *x = [NSXMLElement elementWithName:@"x" xmlns:@"http://jabber.org/protocol/muc"];
+    [presence addChild:priority];
+    [presence addChild:x];
+    [xmppStream sendElement: presence];
+}
+
 
 #pragma mark - 收到错误信息调用
 -(void) xmppStream:(XMPPStream *)sender didReceiveError:(DDXMLElement *)error
@@ -528,7 +543,7 @@ NSString* getMachine() {
     NSLog(@"Error: %@", error);
 }
 
-#pragma mark - 获取好友状态
+#pragma mark - 获取好友状态，注：所有收到的presence节都走到这里
 -(void) xmppStream:(XMPPStream *)sender didReceivePresence:(XMPPPresence *)presence
 {
     NSLog(@"获取好友状态，%@: %@ - %@", THIS_FILE, THIS_METHOD, [presence fromStr]);
