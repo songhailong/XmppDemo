@@ -223,6 +223,7 @@ NSString* testRoomNick = @"hermes";
         // The XMPPReconnect module monitors for "accidental disconnections" and
         // automatically reconnects the stream for you.
         // There's a bunch more information in the XMPPReconnect header file.
+        // NOTE(jinlong.yang) 默认开启重连操作, 可以开关wifi测一下，默认就开启，还是很不错的。
         xmppReconnect = [[XMPPReconnect alloc] init];
         
         // Setup roster
@@ -314,7 +315,7 @@ NSString* testRoomNick = @"hermes";
 	xmppCapabilitiesStorage = nil;
 }
 
-// 用于jid的resource部分
+// 获取机器码：1. 用于jid的resource部分 2. 用于密码唯一(认证更好些)
 NSString* getMachine() {
     size_t size;
     sysctlbyname("hw.machine", NULL, &size, NULL, 0);
@@ -400,6 +401,12 @@ NSString* getMachine() {
     NSLog(@"[xmpp] 认证通过。");
 }
 
+#pragma mark - 身份认证失败
+-(void) xmppStream:(XMPPStream *)sender didNotAuthenticate:(DDXMLElement *)error
+{
+    NSLog(@"用户名或者密码错误 error = %@",error);
+}
+
 #pragma mark - 验证通过，使其为在线状态
 -(void) xmppStreamDidAuthenticate:(XMPPStream *)sender
 {
@@ -407,7 +414,7 @@ NSString* getMachine() {
     
     XMPPPresence *presence = [XMPPPresence presence];
     NSXMLElement *query = [NSXMLElement elementWithName:@"c" xmlns:@"http://jabber.org/protocol/caps"];
-    NSXMLElement* priority = [NSXMLElement elementWithName: @"priority" stringValue: @"0"];
+    NSXMLElement* priority = [NSXMLElement elementWithName: @"priority" stringValue: @"5"]; // NOTE(jinlong.yang) 上线优先级设置为5，要不不支持多端
     [presence addChild:query];
     [presence addChild:priority];
     [xmppStream sendElement:presence];
